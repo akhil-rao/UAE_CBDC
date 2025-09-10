@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 
-st.title("💴 UAE CBDC Demo: Issuance & Distribution (Detailed)")
+st.title("💴 e-Dirham: Issuance & Distribution (WalkThrough)")
 
 # --- Initialize Wallets ---
 if "wallets" not in st.session_state:
