@@ -2,54 +2,64 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 
-st.title("💴 UAE CBDC Demo: Issuance & Distribution")
+st.title("💴 UAE CBDC Demo: Issuance & Distribution (Detailed)")
 
 # --- Initialize Wallets ---
 if "wallets" not in st.session_state:
     st.session_state.wallets = {
-        "CBUAE": 0,              # Central Bank of the UAE
-        "ADCB_LFI": 0,           # ADCB as Licensed Financial Institution
-        "UAE-CBDC-ALICE-001": 0  # Alice's retail wallet
+        "CBUAE_Reserve": 10_000_000,     # Central Bank holding
+        "ADCB_Fiat": 10_000_000,         # ADCB’s fiat reserve with CBUAE
+        "ADCB_CBDC": 0,                  # ADCB CBDC wallet
+        "Alice_Fiat": 100_000,           # Alice's fiat account at ADCB
+        "UAE-CBDC-ALICE-001": 0          # Alice's retail CBDC wallet
     }
 
-# --- Initialize Transaction Log ---
 if "tx_log" not in st.session_state:
     st.session_state.tx_log = []
 
 # --- Display Wallet Balances ---
-st.subheader("💼 Current Wallet Balances")
-st.write(pd.DataFrame.from_dict(st.session_state.wallets, orient="index", columns=["Balance (AED-CBDC)"]))
+st.subheader("💼 Current Balances")
+st.write(pd.DataFrame.from_dict(st.session_state.wallets, orient="index", columns=["Balance (AED)"]))
 
-# --- Step 1: Issuance ---
-st.subheader("Step 1 — Issuance")
-if st.button("CBUAE issues 10,000 AED-CBDC to ADCB (LFI)"):
-    st.session_state.wallets["CBUAE"] -= 10000
-    st.session_state.wallets["ADCB_LFI"] += 10000
-    st.session_state.tx_log.append({
-        "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "From": "CBUAE",
-        "To": "ADCB_LFI",
-        "Amount": 10000,
-        "Purpose": "CBDC Issuance to LFI"
-    })
-    st.success("✅ CBUAE issued 10,000 AED-CBDC to ADCB (LFI)")
+# --- Step 1: Issuance (CBUAE -> ADCB) ---
+st.subheader("Step 1 — Issuance (CBUAE → ADCB)")
+issue_amount = st.number_input("Enter amount of AED-CBDC to issue to ADCB", min_value=1000, step=1000)
 
-# --- Step 2: Distribution ---
-st.subheader("Step 2 — Distribution")
-if st.button("ADCB distributes 1,000 AED-CBDC to Alice’s wallet"):
-    if st.session_state.wallets["ADCB_LFI"] >= 1000:
-        st.session_state.wallets["ADCB_LFI"] -= 1000
-        st.session_state.wallets["UAE-CBDC-ALICE-001"] += 1000
+if st.button("Submit Issuance"):
+    if issue_amount <= st.session_state.wallets["ADCB_Fiat"]:
+        st.session_state.wallets["ADCB_Fiat"] -= issue_amount
+        st.session_state.wallets["ADCB_CBDC"] += issue_amount
         st.session_state.tx_log.append({
             "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "From": "ADCB_LFI",
-            "To": "UAE-CBDC-ALICE-001",
-            "Amount": 1000,
-            "Purpose": "Distribution to retail wallet"
+            "From": "ADCB_Fiat",
+            "To": "ADCB_CBDC",
+            "Amount": issue_amount,
+            "Purpose": "Issuance: Fiat to CBDC conversion at ADCB"
         })
-        st.success("✅ ADCB distributed 1,000 AED-CBDC to Alice’s retail wallet")
+        st.success(f"✅ Issued {issue_amount:,} AED-CBDC to ADCB. Equivalent fiat debited from ADCB reserve.")
     else:
-        st.error("❌ Not enough balance in ADCB wallet for distribution")
+        st.error("❌ Not enough fiat balance at ADCB for issuance.")
+
+# --- Step 2: Distribution (ADCB -> Alice) ---
+st.subheader("Step 2 — Distribution (ADCB → Alice)")
+dist_amount = st.number_input("Enter amount Alice requests as e-Dirham (CBDC)", min_value=100, step=100)
+
+if st.button("Submit Distribution"):
+    if dist_amount <= st.session_state.wallets["Alice_Fiat"] and dist_amount <= st.session_state.wallets["ADCB_CBDC"]:
+        st.session_state.wallets["Alice_Fiat"] -= dist_amount
+        st.session_state.wallets["UAE-CBDC-ALICE-001"] += dist_amount
+        st.session_state.wallets["ADCB_CBDC"] -= dist_amount
+
+        st.session_state.tx_log.append({
+            "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "From": "ADCB_CBDC",
+            "To": "UAE-CBDC-ALICE-001",
+            "Amount": dist_amount,
+            "Purpose": "Distribution: Alice converts fiat to CBDC"
+        })
+        st.success(f"✅ Alice received {dist_amount:,} AED as e-Dirham. Equivalent debited from her fiat account.")
+    else:
+        st.error("❌ Not enough balance (either Alice’s fiat or ADCB’s CBDC pool).")
 
 # --- Transaction Log ---
 if st.session_state.tx_log:
